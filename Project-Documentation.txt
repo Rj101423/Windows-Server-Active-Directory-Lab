@@ -1,0 +1,384 @@
+AD Lab Project
+
+Project Name: Windows Server and Active Directory Home Lab
+
+Purpose: The purpose of this project is to build a virtual 
+Windows domain to practice IT support and system administration, 
+including managing users, computers, permissions, and Group Policy.
+
+Project Outcome: Built an isolated Active Directory 
+lab in Hyper-V with a Windows Server 2025 domain 
+controller and a Windows 11 Pro client. Resolved a 
+duplicate IP conflict, verified DNS and domain sign-in 
+from the client, and tested that a Group Policy restriction 
+applied to the domain test user while the local account 
+retained access.
+
+Initial System Environment: 
+
+Operating System:
+Windows 11 Pro
+
+RAM:
+32 GB 
+
+Available Storage:
+566 GB
+
+Hardware Virtualization:
+Enabled
+
+Virtualization platform:
+Hyper-V
+
+Lab network: 
+Private virtual switch named AD-Lab-Private
+
+Initial Setup Completed:
+Enabled Hyper-V and created the private virtual switch
+
+
+Virtual Machine Configuration
+
+VM Name: DC01
+Intended Role: Domain controller and DNS server
+Generation: 2
+Startup Memory: 4096 MB (4 GB)
+Dynamic Memory: Disabled
+Network Switch: AD-Lab-Private
+Virtual Disk: DC01.vhdx
+Maximum Disk Size: 80 GB
+Disk Type: Dynamically expanding
+Installation Media: Windows Server 2025 Evaluation ISO
+
+Verification:
+DC01 appears in Hyper-V Manager.
+The configuration summary was reviewed before creation.
+
+Screenshot:
+02-DC01-VM-Configuration-Summary.png
+
+
+Windows Server Installation 
+
+Selected Windows Server 2025 Standard Evaluation
+(Desktop Experience) to provide a graphical interface
+for learning server administration.
+
+Selected the 80 GB virtual disk. Windows Setup
+automatically created the required system partitions.
+Selected the approximately 79 GB Primary partition
+as the installation destination.
+
+Initial boot issue:
+The VM displayed "Start PXE over IPv4" instead of
+loading Windows Setup.
+
+Resolution:
+Reset the VM and pressed a key at the DVD boot
+prompt. Windows Setup then loaded successfully.
+
+Windows Server installation completed.
+Configured a password for the built-in local
+Administrator account.
+
+
+Server Name Configuration
+
+Changed the Windows Server computer name to DC01
+and restarted the server to apply the change.
+
+Purpose:
+Use a recognizable name identifying the server
+as the lab's planned first domain controller.
+
+Verification:
+Server Manager > Local Server displays DC01
+as the computer name after restarting.
+
+At this stage, DC01 was still in a workgroup.
+Active Directory had not been installed yet.
+
+Screenshot:
+05-DC01-Server-Name-Verification.png
+
+
+Initial DC01 IPv4 Configuration
+
+Configured DC01 with these settings:
+IP Address: 10.10.10.10
+Subnet Mask: 255.255.255.0 (/24)
+Default Gateway: None
+Preferred DNS Server: 10.10.10.10
+Alternate DNS Server: None
+DHCP: Disabled
+
+Purpose:
+A fixed address allows domain clients to consistently
+locate this server's future DNS and Active Directory
+services.
+
+The gateway is blank because the private lab network
+does not currently have a router or internet access.
+
+DNS points to DC01 itself in preparation for installing
+the DNS Server role. DNS service is not installed yet.
+
+Verification:
+Ran ipconfig /all and confirmed that the applied
+settings matched the intended configuration.
+Communication with another VM has not yet been tested.
+
+Screenshots:
+06-DC01-Static-IPv4-Settings.png
+07-DC01-IP-Configuration-Verification.png
+
+
+Active Directory Deployment
+
+Installed Active Directory Domain Services (AD DS) on DC01.
+Promoted DC01 to the first domain controller in a new forest.
+Created the ad.rjlab.test domain with the short domain name
+RJLAB and installed DNS during promotion.
+
+After restarting, verified that Server Manager displayed
+ad.rjlab.test and that DC01 appeared in the Domain Controllers
+OU in Active Directory Users and Computers.
+
+Screenshots:
+13-DC01-Domain-Membership-Verification.png
+14-DC01-ADUC-Domain-Controller.png
+
+
+DNS Verification and Troubleshooting
+
+Verified the following DNS zones exist:
+- ad.rjlab.test
+- _msdcs.ad.rjlab.test
+
+Confirmed the forward Host (A) record:
+dc01.ad.rjlab.test -> 10.10.10.10
+
+Issue:
+The initial nslookup returned the correct IPv4 address
+but displayed timeouts and identified the DNS server
+as Unknown.
+
+Investigation:
+Increasing the timeout did not resolve the delays.
+An explicit A-record query using the fully qualified
+name with a trailing period removed the additional
+lookup timeouts. An initial server-identification
+timeout remained.
+
+The reverse lookup zone had not been configured.
+
+Resolution:
+Created an Active Directory-integrated reverse zone:
+10.10.10.in-addr.arpa
+
+Configured replication to DNS servers on domain
+controllers in ad.rjlab.test and secure dynamic
+updates only.
+
+Created DC01's PTR record by selecting "Update
+associated pointer (PTR) record" on its Host (A) record.
+
+Reverse mapping:
+10.10.10.10 -> dc01.ad.rjlab.test
+
+Verification command:
+nslookup -type=A dc01.ad.rjlab.test. 10.10.10.10
+
+Result:
+The DNS server was identified by name, the correct
+IPv4 address was returned, and no timeouts occurred.
+
+Screenshot:
+17-DC01-DNS-Lookup-Verification.png
+
+
+Domain Controller DNS Service Record Verification
+
+Command:
+nslookup -type=SRV _ldap._tcp.dc._msdcs.ad.rjlab.test. 10.10.10.10
+
+Result:
+DNS returned dc01.ad.rjlab.test on LDAP port 389,
+with IPv4 address 10.10.10.10 and no timeouts.
+
+Confirmed that DNS advertises DC01 as a domain
+controller. Client connectivity and authentication
+have not yet been tested.
+
+Screenshot:
+18-AD-LDAP-SRV-Record-Verification.png
+
+
+Domain Controller Share Verification
+
+Command:
+net share
+
+Result:
+Confirmed that SYSVOL and NETLOGON are listed.
+
+Purpose:
+SYSVOL provides domain policy files and scripts.
+NETLOGON provides access to domain sign-in scripts.
+
+This confirms the shares exist locally. Access from
+a domain client has not yet been tested.
+
+Screenshot:
+19-DC01-SYSVOL-NETLOGON-Shares.png
+
+
+Domain Controller Health Check
+
+Initial results:
+- SysVolCheck: Passed
+- NetLogons: Passed
+- Advertising: Failed — DC01 was not advertising as a time server.
+
+Troubleshooting:
+Confirmed that DC01 received time from the Hyper-V host and
+that its NTP server was enabled. Configured DC01 to advertise
+itself as a reliable time source for the lab domain:
+
+w32tm /config /reliable:yes /update
+
+Verification:
+dcdiag /test:Advertising passed on retest.
+Client time synchronization has not yet been tested.
+
+Screenshot:
+20-DC01-Advertising-Retest.png
+
+
+Windows 11 Client Setup
+
+Created a Generation 2 Hyper-V VM named CLIENT01 with
+2 virtual processors, 4096 MB of fixed RAM, and an
+80 GB dynamically expanding virtual disk. Enabled
+Secure Boot and the virtual TPM.
+
+The creation wizard reported an error adding the virtual
+DVD drive. Created the VM with "Install an operating
+system later," then configured the Windows 11 ISO through
+the VM settings. Reopened Settings to confirm the ISO
+path was saved and verified that Windows Setup booted.
+
+Installed Windows 11 Pro and verified the edition in
+Settings > System > About. Created LabAdmin as a local
+account for setup and troubleshooting.
+
+Used the Hyper-V Default Switch temporarily for internet
+access during Windows setup, then moved CLIENT01 back
+to AD-Lab-Private.
+
+Screenshots:
+21-CLIENT01-VM-Configuration-Summary.png
+22-CLIENT01-Secure-Boot-and-TPM.png
+23-CLIENT01-Windows-11-Pro-Verification.png
+
+
+Client Network Configuration and Troubleshooting
+
+Intended CLIENT01 settings:
+- IPv4 address: 10.10.10.20
+- Subnet mask: 255.255.255.0 (/24)
+- Default gateway: None
+- Preferred DNS server: 10.10.10.10 (DC01)
+
+The first DNS lookup failed while CLIENT01 was still
+using an automatic 169.254.x.x address. After switching
+to static settings, DNS still failed. On DC01, ipconfig
+reported 10.10.10.10 as Duplicate. Checking CLIENT01
+showed it had also been assigned 10.10.10.10.
+
+This explained why CLIENT01 could ping 10.10.10.10
+even while DC01 was off: it was pinging itself.
+
+Corrected CLIENT01's IP address to 10.10.10.20 and
+kept its DNS server set to 10.10.10.10. Restarted DC01
+and verified that its address showed as Preferred.
+
+From CLIENT01, ran:
+nslookup -type=SRV _ldap._tcp.dc._msdcs.ad.rjlab.test.
+
+The query used DC01 at 10.10.10.10 and returned
+dc01.ad.rjlab.test on LDAP port 389. This verified
+that the client could discover the domain controller.
+
+Screenshots:
+24-CLIENT01-Static-IPv4-Settings.png
+25-CLIENT01-Domain-DNS-Verification.png
+
+
+Domain Join and User Sign-In
+
+Joined CLIENT01 to ad.rjlab.test and restarted it.
+Verified domain membership under System Properties >
+Computer Name.
+
+Created a standard domain test user, labuser, in
+Active Directory Users and Computers. Configured it
+to require a password change at first sign-in.
+
+Signed in to CLIENT01 with the test account.
+Ran whoami and confirmed the session was rjlab\labuser.
+
+Screenshots:
+26-CLIENT01-Domain-Join-Success.png
+27-CLIENT01-Domain-Membership-Verification.png
+28-AD-Test-User-Created.png
+29-CLIENT01-Domain-User-Sign-In.png
+
+
+Group Policy Baseline
+
+While signed in as labuser on CLIENT01, ran:
+gpresult /r /scope user
+
+Applied Group Policy Objects showed N/A. This is the
+baseline for the user policy test. It does not report
+which computer policies applied.
+
+
+Group Policy Configuration
+
+Created the Lab Users OU under ad.rjlab.test to scope a 
+test user policy. Enabled protection against accidental 
+deletion.
+
+Moved labuser from the built-in Users container to the 
+Lab Users OU and verified the account appeared there. 
+This places the account in scope for the planned user
+Group Policy.
+
+Created the Lab Users - Control Panel Restriction GPO
+and verified that it was linked to the Lab Users OU. No
+policy settings had been configured yet.
+
+Enabled 'Prohibit access to Control Panel and PC settings'
+under User Configuration in the Lab Users GPO. 
+
+
+Group Policy Verification
+
+On CLIENT01, signed in as RJLAB\labuser and ran:
+gpupdate /target:user /force
+gpresult /r /scope user
+
+Confirmed that Lab Users - Control Panel Restriction
+appeared under Applied Group Policy Objects and that
+Control Panel access was blocked.
+
+Signed out and signed in as the local LabAdmin account
+on the same VM. Control Panel opened successfully.
+
+Screenshot:
+30-CLIENT01-Group-Policy-Verification.png
+
+
