@@ -382,3 +382,106 @@ Screenshot:
 30-CLIENT01-Group-Policy-Verification.png
 
 
+Shared Folder Permissions Lab
+
+Active Directory Security Groups
+
+On DC01, I created two Global Security groups in the
+Users container of ad.rjlab.test:
+
+- Finance-Read: For users who should be able to open
+  and read files in the Finance shared folder.
+- Finance-Modify: For users who should be able to read,
+  create, edit, and delete files in that folder.
+
+I verified that both groups appeared in Active Directory
+Users and Computers. I created separate groups so I can
+manage access through group membership instead of assigning
+permissions to each user individually.
+
+Created a standard domain test account named finance.reader
+to verify read-only access from CLIENT01. Added finance.reader 
+to the Finance-Read security group and verified that Finance 
+Reader appeared on the Members tab. 
+
+Created a standard domain test account named finance.editor
+to verify Modify access from CLIENT01. Added finance.editor to 
+the Finance-Modify security group and verified that Finance 
+Editor appeared on the Members tab. 
+
+
+Folder and Share Configuration
+
+Created C:\LabShares\Finance on DC01 as the folder
+for the Finance permissions lab. The folder had not
+yet been shared over the network.
+
+Disabled NTFS permission inheritance on C:\LabShares\Finance
+and converted the inherited entries to explicit permissions.
+Removed both Users entries to prevent broad access. Kept the
+Administrators, SYSTEM, and CREATOR OWNER entries.
+
+Granted RJLAB\Finance-Read Read & execute access to
+C:\LabShares\Finance and its subfolders and files.
+Verified the entry in Advanced Security Settings.
+
+Granted RJLAB\Finance-Modify Modify access to
+C:\LabShares\Finance and its subfolders and files.
+Verified that Finance-Modify had Modify access and
+Finance-Read retained Read & execute access.
+
+Published C:\LabShares\Finance as \\DC01\Finance.
+Removed Everyone from the share permissions and granted
+Finance-Read Read access and Finance-Modify Change and
+Read access. See the three client access tests below.
+
+Created Finance-Test.txt in the Finance shared folder
+to test read and write permissions from CLIENT01.
+
+
+Finance Reader Access Test
+
+Signed in to CLIENT01 as RJLAB\finance.reader and opened
+Finance-Test.txt from \\DC01\Finance. Attempted to create
+Reader-Write-Test.txt on the share and received
+"Access is denied." This verified read access and confirmed
+that the reader could not create a file on the share.
+
+Screenshot:
+31-Finance-Reader-Write-Denied.png
+
+
+Finance Editor Access Test
+
+Signed in to CLIENT01 as RJLAB\finance.editor and created
+Editor-Write-Test.txt on \\DC01\Finance. Appended a second
+line and read back both lines to verify the edit was saved.
+Deleted the test file and confirmed it no longer appeared
+in the share. Finance-Test.txt remained in place.
+
+Screenshot:
+32-Finance-Editor-Modify-Verification.png
+
+
+Finance Non-Member Access Test
+
+Signed in to CLIENT01 as RJLAB\labuser, an account outside
+both Finance security groups. Ran dir "\\DC01\Finance" and
+received "Access is denied." No files were listed.
+
+Screenshot:
+33-Finance-NonMember-Access-Denied.png
+
+
+Final Result
+
+Tested the Finance share from CLIENT01 with three domain accounts:
+- finance.reader opened Finance-Test.txt but could not create a file.
+- finance.editor created, edited, read back, and deleted its test file.
+- labuser could not list the share's contents.
+
+The results matched the intended access levels set through
+Active Directory group membership, share permissions, and
+NTFS permissions.
+
+
