@@ -26,11 +26,8 @@
 
 # 
 
-# \## Documentation
+## Documentation
 
-# 
-
-# \- \[Full project walkthrough](Project-Documentation.txt)
-
-# \- \[Lab screenshots](Screenshots/)
+- [Full project walkthrough](./Project-Documentation.txt)
+- [Lab screenshots](./Screenshots/)
 
