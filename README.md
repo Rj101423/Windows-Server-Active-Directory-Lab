@@ -8,7 +8,7 @@
 
 # \## What I configured
 
-# 
+# - Set up a Finance file share using Active Directory security groups, share permissions, and NTFS permissions. Verified from the Windows 11 client that a reader could open files but couldn’t create one, an editor could create, edit, and delete a test file, and a user outside both groups couldn’t list the share.
 
 # \- Deployed Active Directory Domain Services and DNS for `ad.rjlab.test`.
 
@@ -30,4 +30,3 @@
 
 - [Full project walkthrough](./Project-Documentation.txt)
 - [Lab screenshots](./Screenshots/)
-
